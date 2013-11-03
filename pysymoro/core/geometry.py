@@ -267,6 +267,7 @@ def _dgm_one(robo, symo, i, j, fast_form=True,
         if trig_subs:
             for ang, name in robo.get_angles(x):
                 symo.trig_replace(T, ang, name)
+        T = T.expand()
         T = T.applyfunc(symo.CS12_simp)
         if is_loop:
             T = T.applyfunc(symo.C2S2_simp)

@@ -107,13 +107,13 @@ class testSymoroTrig(unittest.TestCase):
         e3 = Y**2
         e4 = symoro.ONE
         e5 = symoro.ZERO
-        self.assertEqual(self.symo.try_opt(e4, e5, e2, e3, e1), A*(B-C) + B*X)
+        self.assertEqual(symoro.try_opt(e4, e5, e2, e3, e1), A*(B-C) + B*X)
         e6 = A*(B-C)*X**2 + B*X**3 - A*(B - C)*Y**2 - B*X*Y**2
-        self.assertEqual(self.symo.try_opt(e4, e5, e2, e3, e6), e5)
+        self.assertEqual(symoro.try_opt(e4, e5, e2, e3, e6), e5)
         e7 = A*B
-        self.assertEqual(self.symo.try_opt(e4, e7, e2, e3, e6),
+        self.assertEqual(symoro.try_opt(e4, e7, e2, e3, e6),
                          e7*A*(B-C) + e7*B*X)
-        self.assertEqual(self.symo.try_opt(e7, e4, e2, e3, e1),
+        self.assertEqual(symoro.try_opt(e7, e4, e2, e3, e1),
                          e7*A*(B-C) + e7*B*X)
 
     def test_trig_simp(self):
@@ -245,7 +245,7 @@ class testGeometry(unittest.TestCase):
         T = geometry.dgm(self.robo, self.symo, 0, 6,
                          fast_form=True, trig_subs=True)
         f06 = self.symo.gen_func('DGM_generated1', T, self.robo.q_vec)
-        for x in xrange(100):
+        for x in xrange(10):
             arg = random.normal(size=6)
             Ttest = f06(arg)
             solution = igm_f(Ttest)
@@ -274,16 +274,20 @@ class testKinematics(unittest.TestCase):
         self.robo = symoro.Robot.RX90()
 
     def test_speeds(self):
-        print 'Speeds and accelerations'
-        kinematics.speeds_accelerations(self.robo)
+        print "######## Speeds and accelerations ##########"
+        kinematics.accelerations(self.robo)
+        kinematics.velocities(self.robo)
 
-        print 'Kinematic constraint equations'
+        print "######## Kinematic constraint equations ##########"
         kinematics.kinematic_constraints(symoro.Robot.SR400())
+
+        print "######## JPQP ########"
+        kinematics.jdot_qdot(self.robo)
 
     def test_jac(self):
         print "######## test_jac ##########"
         kinematics.jacobian(self.robo, 6, 3, 6)
-        for j in xrange(1, 7):
+        for j in xrange(5, 7):
             print "######## Jac validation through DGM ##########"
             #compute Jac
             J, l = kinematics._jac(self.robo, self.symo, j, 0, j)
@@ -338,10 +342,23 @@ class testDynamics(unittest.TestCase):
         print 'Base parameters computation'
         dynamics.base_paremeters(robo)
 
+
+#def b():
+#    kinematics.kinematic_constraints(symoro.Robot.SR400())
+####from timeit import timeit
+#####print timeit(a, number=10)
+#####print timeit(b, number=10)
+####
+#import profile
+###
+#profile.run('b()', sort = 'cumtime')
+##profile.run('b()')
+
+
 if __name__ == '__main__':
     unittest.main()
 #########################
     suite = unittest.TestSuite()
-##    suite.addTest(testSymoroTrig('test_trig_simp'))
-    suite.addTest(testKinematics('test_jac'))
+    suite.addTest(testGeometry('test_loop'))
+#    suite.addTest(testKinematics('test_speeds'))
 #    unittest.TextTestRunner().run(suite)

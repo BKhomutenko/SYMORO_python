@@ -896,6 +896,13 @@ def sym_less(A, B):
     return A_measure < B_measure
 
 
+def min_sym(A, B):
+    if sym_less(A, B):
+        return A
+    else:
+        return B
+
+
 def get_angles(expr):
     angles_s = set()
     for s in expr.atoms(sin):
@@ -923,6 +930,46 @@ def trigonometric_info(sym):
         short_form = False
         names = get_angles(sym)
     return names, short_form
+
+
+def try_replace(A, B, C, old_sym, Bcfs, Ccfs):
+    """Replaces B + C by A.
+    """
+    Res = old_sym
+    if Bcfs != [] and Ccfs != []:
+        if len(Ccfs) < len(Bcfs):
+            Bcfs = Ccfs
+        Res_tmp = Res
+        for coef in Bcfs:
+            Res_tmp += A*coef - B*coef - C*coef
+            if sym_less(Res_tmp, Res):
+                Res = Res_tmp
+    return Res
+
+
+def try_opt(A, Am, B, C, old_sym, symo=None):
+    """Replaces B + C by A or B - C by Am.
+    """
+    Bcfs = get_max_coef_list(old_sym, B)
+    Ccfs = get_max_coef_list(old_sym, C)
+    if Bcfs == [] or Ccfs == []:
+        return old_sym
+    Res = try_replace(A, B, C, old_sym, Bcfs, Ccfs)
+    if Am is None and sym_less(Res, old_sym):
+        if not symo is None:
+            symo.add_to_dict(A, B + C)
+        return Res
+    elif not Am is None:
+        Res2 = try_replace(Am, B, -C, old_sym, Bcfs, Ccfs)
+        if sym_less(Res2, Res) and sym_less(Res2, old_sym):
+            if not symo is None:
+                symo.add_to_dict(Am, B - C)
+            return Res2
+        elif sym_less(Res, old_sym):
+            if not symo is None:
+                symo.add_to_dict(A, B + C)
+            return Res
+    return old_sym
 
 
 class Symoro:
@@ -953,6 +1000,7 @@ class Symoro:
             new_sym *= e**p
         return new_sym
 
+    @classmethod
     def C2S2_simp(self, sym):
         """
         Example
@@ -972,7 +1020,7 @@ class Symoro:
                 C, S = CS_syms(name)
             else:
                 C, S = cos(name), sin(name)
-            sym = self.try_opt(ONE, None, S**2, C**2, sym)
+            sym = try_opt(ONE, None, S**2, C**2, sym)
         return sym
 
     def CS12_simp(self, sym, silent=False):
@@ -986,7 +1034,9 @@ class Symoro:
         S23 = C2*S3 + S2*C3
         R*S23
         """
-        if not sym.is_Add:
+        if sym.is_number or sym.is_Atom:
+            return sym
+        elif not sym.is_Add:
             repl_dict = {}
             for term in sym.atoms(Add):
                 repl_dict[term] = self.CS12_simp(term)
@@ -1011,46 +1061,16 @@ class Symoro:
                 C2, S2 = cos(n2), sin(n2)
                 C12, S12 = cos(n1+n2), sin(n1+n2)
                 C1m2, S1m2 = cos(n1-n2), sin(n1-n2)
-            sym2 = self.try_opt(S12, S1m2, S1*C2, C1*S2, sym2, silent)
-            sym2 = self.try_opt(C12, C1m2, C1*C2, -S1*S2, sym2, silent)
+            if not silent:
+                sym2 = try_opt(S12, S1m2, S1*C2, C1*S2, sym2, self)
+                sym2 = try_opt(C12, C1m2, C1*C2, -S1*S2, sym2, self)
+            else:
+                sym2 = try_opt(S12, S1m2, S1*C2, C1*S2, sym2)
+                sym2 = try_opt(C12, C1m2, C1*C2, -S1*S2, sym2)
         if sym2 != sym:
             return self.CS12_simp(sym2, silent)
         else:
             return sym
-
-    def try_opt(self, A, Am, B, C, old_sym, silent=False):
-        """Replaces B + C by A or B - C by Am.
-        Chooses the best option.
-        """
-        Bcfs = get_max_coef_list(old_sym, B)
-        Ccfs = get_max_coef_list(old_sym, C)
-        if Bcfs != [] and Ccfs != []:
-            Res = old_sym
-            Res_tmp = Res
-            for coef in Bcfs:
-                Res_tmp += A*coef - B*coef - C*coef
-                if sym_less(Res_tmp, Res):
-                    Res = Res_tmp
-            if sym_less(Res, old_sym) and Am is None:
-                if not A.is_number and not silent:
-                    self.add_to_dict(A, B + C)
-                return Res
-            elif Am is not None:
-                Res2 = old_sym
-                Res_tmp = Res2
-                for coef in Bcfs:
-                    Res_tmp += Am*coef - B*coef + C*coef
-                    if sym_less(Res_tmp, Res2):
-                        Res2 = Res_tmp
-                if sym_less(Res2, Res) and sym_less(Res2, old_sym):
-                    if not Am.is_number and not silent:
-                        self.add_to_dict(Am, B - C)
-                    return Res2
-                elif sym_less(Res, old_sym):
-                    if not A.is_number and not silent:
-                        self.add_to_dict(A, B + C)
-                    return Res
-        return old_sym
 
     def add_to_dict(self, new_sym, old_sym):
         """Internal function.

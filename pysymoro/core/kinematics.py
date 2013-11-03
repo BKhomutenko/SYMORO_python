@@ -16,12 +16,18 @@ TERMINAL = 0
 ROOT = 1
 
 
-def _omega_ij(robo, j, jRant, w, qdj):
-    wi = jRant*w[robo.ant[j]]
+def _omega_j(robo, j, jRant, w, wi, qdj):
     w[j] = wi
     if robo.sigma[j] == 0:    # revolute joint
         w[j] += qdj
-    return wi, w[j]
+    return w[j]
+
+
+def _omega_i(robo, symo, j, jRant, w):
+    """omega of ant[j] frame, projected into frame j.
+    """
+    wi = jRant*w[robo.ant[j]]
+    return wi
 
 
 def _omega_dot_j(robo, j, jRant, w, wi, wdot, qdj, qddj):
@@ -65,8 +71,9 @@ def compute_omega(robo, symo, j, antRj, w, wi):
     """
     jRant = antRj[j].T
     qdj = Z_AXIS * robo.qdot[j]
-    wi[j], w[j] = _omega_ij(robo, j, jRant, w, qdj)
+    wi[j] = _omega_i(robo, symo, j, jRant, w)
     symo.mat_replace(wi[j], 'WI', j)
+    w[j] = _omega_j(robo, j, jRant, w, wi[j], qdj)
     symo.mat_replace(w[j], 'W', j)
 
 
@@ -217,9 +224,10 @@ def compute_vel_acc(robo, symo, antRj, antPj, forced=False, gravity=True):
         jRant = antRj[j].T
         qdj = Z_AXIS * robo.qdot[j]
         qddj = Z_AXIS * robo.qddot[j]
-        wi, w[j] = _omega_ij(robo, j, jRant, w, qdj)
-        symo.mat_replace(w[j], 'W', j)
+        wi = _omega_i(robo, symo, j, jRant, w)
         symo.mat_replace(wi, 'WI', j)
+        w[j] = _omega_j(robo, j, jRant, w, wi, qdj)
+        symo.mat_replace(w[j], 'W', j)
         _omega_dot_j(robo, j, jRant, w, wi, wdot, qdj, qddj)
         symo.mat_replace(wdot[j], 'WP', j, forced)
         _v_dot_j(robo, symo, j, jRant, antPj, w, wi, wdot, U, vdot, qdj, qddj)
@@ -237,7 +245,8 @@ def velocities(robo):
     for j in xrange(1, robo.NL):
         jRant = antRj[j].T
         qdj = Z_AXIS * robo.qdot[j]
-        _omega_ij(robo, j, jRant, w, qdj)
+        wi = _omega_i(robo, symo, j, jRant, w)
+        w[j] = _omega_j(robo, j, jRant, w, wi, qdj)
         symo.mat_replace(w[j], 'W', j, forced=True)
         _v_j(robo, j, antPj, jRant, v, w, qdj)
         symo.mat_replace(v[j], 'V', j, forced=True)
@@ -268,9 +277,10 @@ def jdot_qdot(robo):
         jRant = antRj[j].T
         qdj = Z_AXIS * robo.qdot[j]
         qddj = Z_AXIS * ZERO
-        wi, w[j] = _omega_ij(robo, j, jRant, w, qdj)
-        symo.mat_replace(w[j], 'W', j)
+        wi = _omega_i(robo, symo, j, jRant, w)
         symo.mat_replace(wi, 'WI', j)
+        w[j] = _omega_j(robo, j, jRant, w, wi, qdj)
+        symo.mat_replace(w[j], 'W', j)
         _omega_dot_j(robo, j, jRant, w, wi, wdot, qdj, qddj)
         symo.mat_replace(wdot[j], 'WPJ', j, forced=True)
         _v_dot_j(robo, symo, j, jRant, antPj, w, wi, wdot, U, vdot, qdj, qddj)
